@@ -1,12 +1,14 @@
 {
-  "version": 2,
-  "buildCommand": "npm install --legacy-peer-deps && npm run build",
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "npm run vercel-build",
   "outputDirectory": "dist",
+  "framework": "vite",
+  "installCommand": "npm install --legacy-peer-deps",
+  "devCommand": "vite --port 3000",
+  "builds": [
+    { "src": "package.json", "use": "@vercel/static-build" }
+  ],
   "routes": [
-    {
-      "src": "/assets/(.*)",
-      "dest": "/assets/$1"
-    },
     {
       "src": "/(.*)",
       "dest": "/index.html"

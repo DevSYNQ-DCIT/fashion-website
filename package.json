@@ -9,8 +9,13 @@
     "build:dev": "vite build --mode development",
     "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
     "preview": "vite preview",
-    "vercel-build": "npm install --legacy-peer-deps && npm run build",
+    "vercel-build": "npm ci --legacy-peer-deps && npm run build",
     "analyze": "vite build --mode production"
+  },
+  "resolutions": {
+    "sourcemap-codec": "^1.4.8",
+    "rimraf": "^4.0.0",
+    "inflight": "^1.0.6"
   },
   "engines": {
     "node": ">=18.0.0",
