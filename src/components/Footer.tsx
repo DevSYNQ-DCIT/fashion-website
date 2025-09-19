@@ -73,7 +73,7 @@ const Footer = () => {
         },
         { 
             icon: <img src={WhatsappIcon} alt="WhatsApp" className="w-5 h-5" />, 
-            href: "#", 
+            href: "https://wa.me/qr/Y7FNSXBVUYIGC1", 
             label: "WhatsApp" 
         },
     ];
@@ -217,7 +217,7 @@ const Footer = () => {
                             <input
                                 type="email"
                                 placeholder="Enter your email"
-                                className="flex-1 px-4 py-2 bg-primary-foreground/10 border border-primary-foreground/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary"
+                                className="flex-1 px-4 py-2 bg-primary-foreground/10 border border-primary-foreground/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary focus:border-secondary"
                             />
                             <Button variant="secondary">
                                 Subscribe
