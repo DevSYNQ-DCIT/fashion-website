@@ -5,9 +5,6 @@
   "framework": "vite",
   "installCommand": "npm install --legacy-peer-deps",
   "devCommand": "vite --port 3000",
-  "builds": [
-    { "src": "package.json", "use": "@vercel/static-build" }
-  ],
   "routes": [
     {
       "src": "/(.*)",
