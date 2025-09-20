@@ -145,7 +145,7 @@ const router = createBrowserRouter([
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+      <ThemeProvider attribute="class" defaultTheme="light" forcedTheme="light">
         <AuthProvider>
           <CartProvider>
             <WishlistProvider>
