@@ -24,6 +24,21 @@ export default defineConfig(({ mode }) => {
       host: "::",
       port: 8080,
       strictPort: true,
+      // Handle SPA fallback for client-side routing
+      historyApiFallback: true,
+      // Enable CORS for development
+      cors: true,
+      // Configure proxy if needed for API requests
+      proxy: {}
+    },
+    // Base public path when served in production
+    base: '/',
+    // Configure how the dev server should serve files
+    preview: {
+      port: 8080,
+      strictPort: true,
+      // Handle SPA fallback for client-side routing in preview mode
+      historyApiFallback: true
     },
     plugins: [
       react({
@@ -79,6 +94,16 @@ export default defineConfig(({ mode }) => {
       minify: 'terser',
       cssMinify: true,
       sourcemap: true,
+      // Asset handling and optimization
+      assetsInlineLimit: 4096,
+      // Code splitting configuration
+      cssCodeSplit: true,
+      // Output directory for the build
+      outDir: 'dist',
+      // Generate manifest for better caching
+      manifest: true,
+      // Increase chunk size warning limit
+      chunkSizeWarningLimit: 1000,
       rollupOptions: {
         output: {
           manualChunks: (id) => {
@@ -125,12 +150,10 @@ export default defineConfig(({ mode }) => {
           comments: false,
         },
       },
-      cssCodeSplit: true,
       reportCompressedSize: false,
       modulePreload: {
         polyfill: false,
       },
-      chunkSizeWarningLimit: 1000,
     },
     css: {
       devSourcemap: true,
