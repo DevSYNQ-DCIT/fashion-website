@@ -105,10 +105,37 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
                         return;
                     }
 
-                    // Get or create user profile for normal auth flow
                     try {
-                        const profile = await fetchUserProfile(session.user.id);
+                        // First try to get the user's profile
+                        let profile = await fetchUserProfile(session.user.id);
                         
+                        // If no profile exists and this is a new user (SIGNED_UP event or first login after email verification)
+                        if (!profile && (event === 'SIGNED_UP' || event === 'SIGNED_IN')) {
+                            console.log('Creating new profile for user:', session.user.id);
+                            
+                            const { data: newProfile, error: profileError } = await supabase
+                                .from('profiles')
+                                .upsert({
+                                    id: session.user.id,
+                                    email: session.user.email?.toLowerCase().trim(),
+                                    full_name: session.user.user_metadata?.full_name?.trim() || 'User',
+                                    role: 'user',
+                                    created_at: new Date().toISOString(),
+                                    updated_at: new Date().toISOString()
+                                })
+                                .select()
+                                .single();
+                                
+                            if (profileError) {
+                                console.error('Error creating profile:', profileError);
+                                throw profileError;
+                            }
+                            
+                            profile = newProfile;
+                            console.log('Profile created successfully:', profile);
+                        }
+                        
+                        // Update user state with profile data
                         setUser({
                             id: session.user.id,
                             email: session.user.email!,
@@ -166,15 +193,9 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
         console.log('Starting signup process...', { email, name });
         
         try {
-            // 1. First sign up the user with Supabase Auth
+            // 1. Sign up the user with Supabase Auth
             console.log('Attempting to create auth user...');
             
-            // Log environment variables (without sensitive data)
-            console.log('Supabase URL:', 
-                import.meta.env.VITE_SUPABASE_URL 
-                    ? `${import.meta.env.VITE_SUPABASE_URL.substring(0, 20)}...` 
-                    : 'Not set');
-
             const signUpPayload = {
                 email: email.toLowerCase().trim(),
                 password: password.trim(),
@@ -183,13 +204,13 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
                         full_name: name.trim(),
                         email: email.toLowerCase().trim(),
                     },
-                    emailRedirectTo: `http://localhost:8080/auth/callback`,
+                    emailRedirectTo: `${window.location.origin}/auth/callback`,
                 },
             };
             
             console.log('Signup payload (sanitized):', {
                 ...signUpPayload,
-                password: '***', // Don't log actual password
+                password: '***',
                 options: {
                     ...signUpPayload.options,
                     data: {
@@ -203,15 +224,10 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
             const { data, error } = await supabase.auth.signUp(signUpPayload);
 
             if (error) {
-                console.error(' Auth signup error:', {
+                console.error('Auth signup error:', {
                     name: error.name,
                     message: error.message,
                     status: error.status,
-                    cause: error.cause,
-                    stack: error.stack,
-                    // Include additional error details if available
-                    ...(error as any).response?.data && { responseData: (error as any).response.data },
-                    ...(error as any).response?.statusText && { statusText: (error as any).response.statusText }
                 });
 
                 // Handle specific error cases
@@ -221,152 +237,29 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
                     throw new Error('Invalid password. Please use a stronger password.');
                 } else if (error.message.includes('email')) {
                     throw new Error('Invalid email address. Please check and try again.');
-                } else if (error.status === 500) {
-                    console.error(' 500 Error Details:', {
-                        status: error.status,
-                        statusText: (error as any).statusText || 'No status text',
-                        response: (error as any).response || 'No response details',
-                        config: {
-                            url: (error as any).config?.url,
-                            method: (error as any).config?.method,
-                            headers: {
-                                ...(error as any).config?.headers,
-                                // Don't log auth headers
-                                Authorization: (error as any).config?.headers?.Authorization ? '***' : undefined
-                            }
-                        }
-                    });
-                    
-                    // Test database connection
-                    try {
-                        console.log(' Testing database connection...');
-                        const { data: testData, error: testError } = await supabase
-                            .from('profiles')
-                            .select('count')
-                            .limit(1);
-                            
-                        if (testError) {
-                            console.error(' Database connection test failed:', testError);
-                            throw new Error('Database connection issue. Please try again later.');
-                        }
-                        
-                        console.log(' Database connection test successful');
-                    } catch (testError) {
-                        console.error(' Database test error:', testError);
-                    }
-                    
-                    throw new Error('Unable to create user account. Please try again later.');
                 }
                 
-                throw error;
+                throw new Error('Unable to create account. Please try again later.');
             }
 
             console.log('Auth user created:', { userId: data.user?.id });
 
-            // 2. If signup was successful but user is not confirmed yet
-            if (data.user && !data.user.identities?.length) {
-                console.log('User needs email verification');
-                return {
-                    success: true,
-                    message: 'A confirmation email has been sent. Please check your email to verify your account.',
-                    data: {
-                        ...data,
-                        requiresConfirmation: true
-                    }
-                };
-            }
-
-            // 3. Create user profile in the database
-            if (data.user) {
-                try {
-                    const profileData = {
-                        id: data.user.id,
-                        email: email.toLowerCase().trim(),
-                        full_name: name.trim(),
-                        role: 'user',
-                        created_at: new Date().toISOString(),
-                        updated_at: new Date().toISOString(),
-                    };
-                    
-                    console.log('Creating profile with data:', profileData);
-                    
-                    const { data: profile, error: profileError } = await supabase
-                        .from('profiles')
-                        .upsert(profileData)
-                        .select()
-                        .single();
-
-                    if (profileError) {
-                        console.error('Profile creation error:', {
-                            message: profileError.message,
-                            details: profileError.details,
-                            hint: profileError.hint,
-                            code: profileError.code
-                        });
-                        
-                        // Try to delete the auth user if profile creation fails
-                        try {
-                            console.log('Attempting to clean up auth user due to profile creation failure...');
-                            const { error: deleteError } = await supabase.auth.admin.deleteUser(data.user.id);
-                            if (deleteError) {
-                                console.error('Failed to clean up auth user:', deleteError);
-                            } else {
-                                console.log('Successfully cleaned up auth user');
-                            }
-                        } catch (deleteError) {
-                            console.error('Error during auth user cleanup:', deleteError);
-                        }
-                        
-                        throw new Error(profileError.message || 'Failed to create user profile. Please try again.');
-                    }
-                    
-                    console.log('Profile created successfully:', profile);
-                    
-                    // Update the user state
-                    setUser({
-                        id: data.user.id,
-                        email: email.toLowerCase().trim(),
-                        name: name.trim(),
-                        role: 'user',
-                        created_at: profile.created_at,
-                        updated_at: profile.updated_at
-                    });
-                    
-                    return {
-                        success: true,
-                        message: 'Account created successfully!',
-                        data: {
-                            ...data,
-                            profile
-                        }
-                    };
-                    
-                } catch (profileError: any) {
-                    console.error('Error in profile creation:', {
-                        name: profileError.name,
-                        message: profileError.message,
-                        stack: profileError.stack
-                    });
-                    
-                    throw new Error(profileError.message || 'Failed to set up your account. Please try again.');
+            // Return success - the profile will be created when the user verifies their email
+            return {
+                success: true,
+                message: 'A confirmation email has been sent. Please check your email to verify your account.',
+                data: {
+                    ...data,
+                    requiresConfirmation: true
                 }
-            }
-            
-            // If we get here, something unexpected happened
-            throw new Error('An unexpected error occurred during signup');
+            };
             
         } catch (error: any) {
             console.error('Signup process failed:', {
                 name: error.name,
                 message: error.message,
                 stack: error.stack,
-                cause: error.cause
             });
-            
-            // Re-throw with a more user-friendly message if needed
-            if (!error.message.includes('already registered')) {
-                error.message = 'Failed to create account. ' + (error.message || 'Please try again.');
-            }
             
             throw error;
             
@@ -523,4 +416,11 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
-export { AuthProvider, useAuth };
+// Export the hook with a proper name that starts with 'use'
+const useAuthContext = useAuth;
+
+// Export the hook as default for better compatibility
+export default useAuthContext;
+
+// Named exports
+export { AuthProvider, useAuthContext as useAuth };

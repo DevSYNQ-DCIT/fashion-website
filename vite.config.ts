@@ -26,7 +26,11 @@ export default defineConfig(({ mode }) => {
       strictPort: true,
     },
     plugins: [
-      react(),
+      react({
+        jsxImportSource: '@emotion/react',
+        tsDecorators: true,
+        devTarget: 'es2022',
+      }),
       mode === "development" && componentTagger(),
       isProduction && visualizer({
         open: false,
